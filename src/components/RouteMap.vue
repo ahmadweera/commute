@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
+import { isGoTransitStep } from '../utils/transitSteps.js'
 
 const props = defineProps({
   directionsResult: { type: Object, default: null },
@@ -52,13 +53,6 @@ function getStepPath(step) {
   if (path.length >= 2) return path
   if (step.start_location && step.end_location) return [step.start_location, step.end_location]
   return []
-}
-
-function isGoTransitStep(step) {
-  const t = step.transit ?? step.transit_details
-  if (!t) return false
-  const agencies = t.line?.agencies ?? []
-  return agencies.some((a) => (a?.name ?? '').toLowerCase().includes('go'))
 }
 
 function clearComboOverlay() {

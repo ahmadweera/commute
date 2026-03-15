@@ -52,18 +52,3 @@ export function useGoogleMaps() {
 
   return { load, isLoaded, error, google }
 }
-
-export function useDirections(googleObj) {
-  if (!googleObj) return null
-  return new googleObj.maps.DirectionsService()
-}
-
-export function useDirectionsRenderer(map, options = {}) {
-  if (!map || !map.maps) return null
-  const renderer = new map.maps.DirectionsRenderer({
-    suppressMarkers: false,
-    ...options,
-  })
-  renderer.setMap(map)
-  return renderer
-}

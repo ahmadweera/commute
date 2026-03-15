@@ -12,8 +12,8 @@ export const GTA_TRANSIT_LOGOS = {
   'Toronto Transit Commission': `${base}icons/Logo_of_the_Toronto_Transit_Commission.svg`,
   'TTC': `${base}icons/Logo_of_the_Toronto_Transit_Commission.svg`,
 
-  'Hamilton Street Railway': `${base}icons/Hamilton_Street_Railway_(logo).png`,
-  'HSR': `${base}icons/Hamilton_Street_Railway_(logo).png`,
+  'Hamilton Street Railway': `${base}icons/GO_Transit_logo.svg`,
+  'HSR': `${base}icons/GO_Transit_logo.svg`,
 
   'MiWay': `${base}icons/MiWay_Logo.svg`,
   'Mississauga Transit': `${base}icons/MiWay_Logo.svg`,
@@ -21,8 +21,8 @@ export const GTA_TRANSIT_LOGOS = {
   'Brampton Transit': `${base}icons/Brampton_Transit.svg`,
   'Brampton': `${base}icons/Brampton_Transit.svg`,
 
-  'Durham Region Transit': `${base}icons/Durham_Region_Transit_logo.png`,
-  'DRT': `${base}icons/Durham_Region_Transit_logo.png`,
+  'Durham Region Transit': `${base}icons/GO_Transit_logo.svg`,
+  'DRT': `${base}icons/GO_Transit_logo.svg`,
 
   'York Region Transit': `${base}icons/York_Region_Transit_logo.svg`,
   'YRT': `${base}icons/York_Region_Transit_logo.svg`,

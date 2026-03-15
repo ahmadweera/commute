@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import RouteDetails from './RouteDetails.vue'
 import { getGtaAgenciesFromResult } from '../utils/gtaTransitLogos.js'
+import { formatDurationFromObj, formatDistance } from '../utils/format.js'
 
 const props = defineProps({
   driving: {
@@ -85,19 +86,7 @@ const transitAgencies = computed(() => getGtaAgenciesFromResult(props.transit?.r
 const comboAgencies = computed(() => getGtaAgenciesFromResult(props.combo?.result) ?? [])
 
 function formatDuration(duration) {
-  if (!duration) return '—'
-  const value = duration.value ?? 0
-  const mins = Math.round(value / 60)
-  if (mins < 60) return `${mins} min`
-  const h = Math.floor(mins / 60)
-  const m = mins % 60
-  return m ? `${h} hr ${m} min` : `${h} hr`
-}
-
-function formatDistance(distance) {
-  if (!distance) return '—'
-  const text = distance.text
-  return text || '—'
+  return formatDurationFromObj(duration)
 }
 
 function selectRoute(mode) {
@@ -109,7 +98,13 @@ function selectRoute(mode) {
 <template>
   <div class="space-y-3">
     <!-- Loading -->
-    <div v-if="loading" class="flex items-center justify-center gap-1.5 rounded border border-gray-200 bg-gray-50 py-5">
+    <div
+      v-if="loading"
+      role="status"
+      aria-live="polite"
+      aria-label="Calculating routes"
+      class="flex items-center justify-center gap-1.5 rounded border border-gray-200 bg-gray-50 py-5"
+    >
       <svg class="h-4 w-4 animate-spin text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
@@ -118,7 +113,12 @@ function selectRoute(mode) {
     </div>
 
     <!-- Error -->
-    <div v-else-if="hasError" class="rounded border border-red-200 bg-red-50 px-2 py-2 text-xs text-red-700">
+    <div
+      v-else-if="hasError"
+      role="alert"
+      aria-live="assertive"
+      class="rounded border border-red-200 bg-red-50 px-2 py-2 text-xs text-red-700"
+    >
       <p class="font-medium">Something went wrong</p>
       <p class="mt-1 text-sm">{{ error }}</p>
     </div>
@@ -140,12 +140,7 @@ function selectRoute(mode) {
         @click="driving && selectRoute('driving')"
       >
         <div class="flex w-full items-center justify-between">
-          <span class="flex items-center gap-1 text-xs font-semibold text-gray-900">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-            </svg>
-            Driving
-          </span>
+          <span class="text-xs font-semibold text-gray-900">Driving</span>
           <div class="flex items-center gap-1">
             <span v-if="usedLiveTraffic" class="rounded bg-emerald-100 px-1 py-0.5 text-[10px] font-medium text-emerald-800" title="Driving times use current live traffic">Live traffic</span>
             <span v-if="driving && fasterMode === 'driving'" class="rounded bg-green-100 px-1 py-0.5 text-[10px] font-medium text-green-800">Faster</span>
@@ -172,12 +167,7 @@ function selectRoute(mode) {
         @click="transit && selectRoute('transit')"
       >
         <div class="flex w-full items-center justify-between">
-          <span class="flex items-center gap-1 text-xs font-semibold text-gray-900">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-            </svg>
-            Transit
-          </span>
+          <span class="text-xs font-semibold text-gray-900">Transit</span>
           <span v-if="transit && fasterMode === 'transit'" class="rounded bg-green-100 px-1 py-0.5 text-[10px] font-medium text-green-800">Faster</span>
         </div>
         <p class="mt-1 text-xl font-bold text-gray-900">{{ formatDuration(transitDuration) }}</p>
@@ -207,16 +197,7 @@ function selectRoute(mode) {
         @click="combo && selectRoute('combo')"
       >
         <div class="flex w-full items-center justify-between">
-          <span class="flex items-center gap-1 text-xs font-semibold text-gray-900">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-            </svg>
-            <span class="hidden sm:inline">+</span>
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-            </svg>
-            Combo
-          </span>
+          <span class="text-xs font-semibold text-gray-900">Combo</span>
           <span v-if="combo && fasterMode === 'combo'" class="rounded bg-green-100 px-1 py-0.5 text-[10px] font-medium text-green-800">Faster</span>
         </div>
         <template v-if="combo">

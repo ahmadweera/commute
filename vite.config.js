@@ -8,6 +8,10 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 
 export default defineConfig({
   base: '/commute/',
+  test: {
+    environment: 'node',
+    include: ['src/**/*.test.js'],
+  },
   plugins: [
     vue(),
     {

@@ -1,5 +1,7 @@
 <script setup>
 import { computed } from 'vue'
+import { formatDurationShort, formatDistance } from '../utils/format.js'
+import { getTransitFromStep, getTransitInfo, isGoTransitStep } from '../utils/transitSteps.js'
 
 const props = defineProps({
   result: { type: Object, default: null },
@@ -37,16 +39,14 @@ const comboMajorSteps = computed(() => {
     { text: `Drive to ${stationName}` },
     { text: 'Park at Station' },
   ]
-  const transitSteps = (transitLeg?.steps ?? []).filter((s) => s.transit || s.transit_details)
-  const walkSteps = (transitLeg?.steps ?? []).filter((s) => s.travel_mode === 'WALKING' || (s.instructions && !s.transit && !s.transit_details))
+  const transitSteps = (transitLeg?.steps ?? []).filter((s) => getTransitFromStep(s))
+  const walkSteps = (transitLeg?.steps ?? []).filter((s) => s.travel_mode === 'WALKING' || (s.instructions && !getTransitFromStep(s)))
   for (const step of transitSteps) {
-    const t = step.transit ?? step.transit_details
+    const t = getTransitFromStep(step)
     if (!t) continue
     const line = t.line
     const vehicle = line?.vehicle?.name || 'Transit'
-    const agencies = line?.agencies ?? []
-    const isGo = agencies.some((a) => (a?.name ?? '').toLowerCase().includes('go'))
-    const transitLabel = isGo ? `GO ${vehicle}` : (line?.short_name || line?.name || vehicle)
+    const transitLabel = isGoTransitStep(step) ? `GO ${vehicle}` : (line?.short_name || line?.name || vehicle)
     const to = t.arrival_stop?.name ?? 'destination'
     majorSteps.push({ text: `Take ${transitLabel} to ${to}` })
   }
@@ -75,28 +75,8 @@ function stripHtml(html) {
   return tmp.textContent || tmp.innerText || ''
 }
 
-function formatDuration(duration) {
-  if (!duration?.value) return ''
-  const mins = Math.round(duration.value / 60)
-  if (mins < 60) return `${mins} min`
-  const h = Math.floor(mins / 60)
-  const m = mins % 60
-  return m ? `${h}h ${m}m` : `${h}h`
-}
-
-function formatDistance(distance) {
-  return distance?.text ?? ''
-}
-
-function getTransitInfo(step) {
-  const t = step.transit ?? step.transit_details
-  if (!t) return null
-  const line = t.line
-  const lineName = line?.short_name || line?.name || 'Transit'
-  const vehicle = line?.vehicle?.name || ''
-  const from = t.departure_stop?.name ?? ''
-  const to = t.arrival_stop?.name ?? ''
-  return { lineName, vehicle, from, to }
+function formatStepDuration(duration) {
+  return formatDurationShort(duration?.value)
 }
 </script>
 
@@ -128,7 +108,7 @@ function getTransitInfo(step) {
             </span>
           </div>
           <div class="mt-1 flex gap-3 text-xs text-gray-500">
-            <span v-if="item.step.duration">{{ formatDuration(item.step.duration) }}</span>
+            <span v-if="item.step.duration">{{ formatStepDuration(item.step.duration) }}</span>
             <span v-if="item.step.distance">{{ formatDistance(item.step.distance) }}</span>
           </div>
         </div>
