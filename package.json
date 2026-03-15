@@ -1,0 +1,25 @@
+{
+  "name": "commute",
+  "type": "module",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "Compare driving, transit, and drive+transit (GO) routes between two locations.",
+  "dependencies": {
+    "@googlemaps/js-api-loader": "^2.0.2",
+    "@vitejs/plugin-vue": "^5.2.4",
+    "autoprefixer": "^10.4.27",
+    "postcss": "^8.5.8",
+    "tailwindcss": "^3.4.19",
+    "vite": "^5.4.21",
+    "vue": "^3.5.30"
+  }
+}
