@@ -1,39 +1,41 @@
 /**
  * GTA (Greater Toronto Area) transit agency logos.
  * Maps agency names (partial match, case-insensitive) to logo paths.
- * Uses icons from public/icons/.
+ * Uses icons from public/icons/. Uses BASE_URL for correct paths on GitHub Pages.
  */
+const base = typeof import.meta !== 'undefined' && import.meta.env?.BASE_URL ? import.meta.env.BASE_URL : '/'
+
 export const GTA_TRANSIT_LOGOS = {
-  'GO Transit': '/icons/GO_Transit_logo.svg',
-  'GO': '/icons/GO_Transit_logo.svg',
+  'GO Transit': `${base}icons/GO_Transit_logo.svg`,
+  'GO': `${base}icons/GO_Transit_logo.svg`,
 
-  'Toronto Transit Commission': '/icons/Logo_of_the_Toronto_Transit_Commission.svg',
-  'TTC': '/icons/Logo_of_the_Toronto_Transit_Commission.svg',
+  'Toronto Transit Commission': `${base}icons/Logo_of_the_Toronto_Transit_Commission.svg`,
+  'TTC': `${base}icons/Logo_of_the_Toronto_Transit_Commission.svg`,
 
-  'Hamilton Street Railway': '/icons/Hamilton_Street_Railway_(logo).png',
-  'HSR': '/icons/Hamilton_Street_Railway_(logo).png',
+  'Hamilton Street Railway': `${base}icons/Hamilton_Street_Railway_(logo).png`,
+  'HSR': `${base}icons/Hamilton_Street_Railway_(logo).png`,
 
-  'MiWay': '/icons/MiWay_Logo.svg',
-  'Mississauga Transit': '/icons/MiWay_Logo.svg',
+  'MiWay': `${base}icons/MiWay_Logo.svg`,
+  'Mississauga Transit': `${base}icons/MiWay_Logo.svg`,
 
-  'Brampton Transit': '/icons/Brampton_Transit.svg',
-  'Brampton': '/icons/Brampton_Transit.svg',
+  'Brampton Transit': `${base}icons/Brampton_Transit.svg`,
+  'Brampton': `${base}icons/Brampton_Transit.svg`,
 
-  'Durham Region Transit': '/icons/Durham_Region_Transit_logo.png',
-  'DRT': '/icons/Durham_Region_Transit_logo.png',
+  'Durham Region Transit': `${base}icons/Durham_Region_Transit_logo.png`,
+  'DRT': `${base}icons/Durham_Region_Transit_logo.png`,
 
-  'York Region Transit': '/icons/York_Region_Transit_logo.svg',
-  'YRT': '/icons/York_Region_Transit_logo.svg',
-  'Viva': '/icons/Viva_blue_logo.svg',
+  'York Region Transit': `${base}icons/York_Region_Transit_logo.svg`,
+  'YRT': `${base}icons/York_Region_Transit_logo.svg`,
+  'Viva': `${base}icons/Viva_blue_logo.svg`,
 
-  'Oakville Transit': '/icons/Oakville_Transit_logo.svg',
-  'Oakville': '/icons/Oakville_Transit_logo.svg',
+  'Oakville Transit': `${base}icons/Oakville_Transit_logo.svg`,
+  'Oakville': `${base}icons/Oakville_Transit_logo.svg`,
 
-  'Burlington Transit': '/icons/Burlington_Transit.svg',
-  'Burlington': '/icons/Burlington_Transit.svg',
+  'Burlington Transit': `${base}icons/Burlington_Transit.svg`,
+  'Burlington': `${base}icons/Burlington_Transit.svg`,
 
-  'UP Express': '/icons/UP_Express_New_Logo_(black).svg',
-  'Union Pearson': '/icons/UP_Express_New_Logo_(black).svg',
+  'UP Express': `${base}icons/UP_Express_New_Logo_(black).svg`,
+  'Union Pearson': `${base}icons/UP_Express_New_Logo_(black).svg`,
 }
 
 /**
