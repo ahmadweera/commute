@@ -577,7 +577,7 @@ onMounted(async () => {
         <p class="mt-0.5 text-xs">{{ loadError.message }}</p>
         <p class="mt-1 text-xs">
           If you just added <code class="rounded bg-amber-100 px-1">.env</code>, restart the dev server
-          (<code class="rounded bg-amber-100 px-1">npm run dev</code>). Ensure Maps JavaScript API, Places API,
+          (<code class="rounded bg-amber-100 px-1">npm run dev</code>).           Ensure Maps JavaScript API, Places API, Places API (New),
           and Directions API (Legacy) are enabled in Google Cloud Console.
         </p>
       </div>
