@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch, onBeforeUnmount } from 'vue'
+import { ref, watch } from 'vue'
 
 const props = defineProps({
   modelValue: { type: String, default: '' },
@@ -10,108 +10,79 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue', 'place-select'])
 
-const containerRef = ref(null)
-let autocompleteEl = null
+const inputRef = ref(null)
+let autocomplete = null
 
 const selectedPlace = ref(null)
 
-function createAutocompleteElement(google) {
-  if (!containerRef.value || !google?.maps?.places?.PlaceAutocompleteElement) return
+function initAutocomplete(google) {
+  if (!inputRef.value || !google?.maps?.places) return
 
   const ontarioBounds = new google.maps.LatLngBounds(
-    new google.maps.LatLng(41.6, -95), // SW: Lake Erie / Manitoba border
-    new google.maps.LatLng(56.8, -74)  // NE: Hudson Bay / Quebec border
+    new google.maps.LatLng(41.6, -95),
+    new google.maps.LatLng(56.8, -74)
   )
 
-  autocompleteEl = new google.maps.places.PlaceAutocompleteElement({
-    placeholder: props.placeholder,
-    locationRestriction: ontarioBounds,
-    includedRegionCodes: ['ca'],
+  autocomplete = new google.maps.places.Autocomplete(inputRef.value, {
+    fields: ['place_id', 'geometry', 'formatted_address'],
+    componentRestrictions: { country: 'ca' },
+    bounds: ontarioBounds,
+    strictBounds: true,
   })
 
-  autocompleteEl.id = 'place-autocomplete-input'
-  autocompleteEl.addEventListener('gmp-select', async (event) => {
-    const placePrediction = event.placePrediction
-    if (!placePrediction) return
-
-    const place = placePrediction.toPlace()
-    await place.fetchFields({
-      fields: ['id', 'formattedAddress', 'location'],
-    })
-
-    if (!place.location) return
+  autocomplete.addListener('place_changed', () => {
+    const place = autocomplete.getPlace()
+    if (!place.geometry?.location) return
 
     selectedPlace.value = {
-      placeId: place.id,
-      location: place.location,
-      formattedAddress: place.formattedAddress || '',
+      placeId: place.place_id,
+      location: place.geometry.location,
+      formattedAddress: place.formatted_address,
     }
-    const addr = place.formattedAddress || ''
-    emit('update:modelValue', addr)
+    emit('update:modelValue', place.formatted_address || '')
     emit('place-select', selectedPlace.value)
-    if (autocompleteEl) autocompleteEl.value = addr
   })
-
-  containerRef.value.innerHTML = ''
-  containerRef.value.appendChild(autocompleteEl)
 }
 
 function clear() {
   selectedPlace.value = null
+  if (inputRef.value) inputRef.value.value = ''
   emit('update:modelValue', '')
   emit('place-select', null)
-  if (autocompleteEl) autocompleteEl.value = ''
 }
 
 watch(
-  () => [props.google, containerRef.value],
+  () => [props.google, inputRef.value],
   ([g, el]) => {
-    if (g && el) {
-      createAutocompleteElement(g)
+    if (g && el && !autocomplete) {
+      initAutocomplete(g)
     }
   },
   { immediate: true }
 )
 
-watch(
-  () => props.placeholder,
-  (p) => {
-    if (autocompleteEl) autocompleteEl.placeholder = p
-  }
-)
-
-watch(
-  () => props.modelValue,
-  (v) => {
-    if (autocompleteEl && autocompleteEl.value !== v) {
-      autocompleteEl.value = v ?? ''
-    }
-  }
-)
-
-onBeforeUnmount(() => {
-  if (autocompleteEl && containerRef.value?.contains(autocompleteEl)) {
-    containerRef.value.removeChild(autocompleteEl)
-  }
-  autocompleteEl = null
-})
-
 defineExpose({
   selectedPlace,
   clear,
+  initAutocomplete,
 })
 </script>
 
 <template>
   <div class="relative">
-    <div
-      ref="containerRef"
-      class="place-autocomplete-wrapper"
+    <input
+      ref="inputRef"
+      type="text"
+      :value="modelValue"
+      :placeholder="placeholder"
+      :disabled="disabled"
+      class="w-full rounded border border-gray-300 px-3 py-2 pr-8 text-xs text-gray-900 placeholder-gray-500 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+      @input="emit('update:modelValue', $event.target.value)"
     />
     <button
       v-if="modelValue"
       type="button"
-      class="absolute right-2 top-1/2 -translate-y-1/2 z-10 rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+      class="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
       aria-label="Clear"
       @click="clear"
     >
@@ -121,13 +92,3 @@ defineExpose({
     </button>
   </div>
 </template>
-
-<style scoped>
-.place-autocomplete-wrapper :deep(gmp-place-autocomplete) {
-  --border: 1px solid rgb(209 213 219);
-  --border-radius: 0.25rem;
-  --font-size: 0.75rem;
-  --padding: 0.375rem 2rem 0.375rem 0.5rem;
-  width: 100%;
-}
-</style>
