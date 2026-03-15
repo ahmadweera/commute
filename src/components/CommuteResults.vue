@@ -22,6 +22,7 @@ const props = defineProps({
   error: { type: String, default: null },
   selectedMode: { type: String, default: null },
   showDetails: { type: Boolean, default: false },
+  usedLiveTraffic: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['select-route'])
@@ -145,7 +146,10 @@ function selectRoute(mode) {
             </svg>
             Driving
           </span>
-          <span v-if="driving && fasterMode === 'driving'" class="rounded bg-green-100 px-1 py-0.5 text-[10px] font-medium text-green-800">Faster</span>
+          <div class="flex items-center gap-1">
+            <span v-if="usedLiveTraffic" class="rounded bg-emerald-100 px-1 py-0.5 text-[10px] font-medium text-emerald-800" title="Driving times use current live traffic">Live traffic</span>
+            <span v-if="driving && fasterMode === 'driving'" class="rounded bg-green-100 px-1 py-0.5 text-[10px] font-medium text-green-800">Faster</span>
+          </div>
         </div>
         <p class="mt-1 text-xl font-bold" :class="drivingDurationTextClass">{{ formatDuration(drivingDuration) }}</p>
         <p v-if="drivingBaseDuration" class="mt-0.5 text-[10px] text-gray-500">Typically {{ formatDuration(drivingBaseDuration) }} without traffic</p>

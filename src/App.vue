@@ -34,7 +34,8 @@ const trafficModel = ref('best_guess')
 const transitRoutingPreference = ref(null)
 
 const comboLessDriving = ref(false)
-const comboOnlyWalking = ref(false)
+const comboNoLocalTransit = ref(false)
+const lastDrivingDepartureTime = ref(null)
 const comboOnlyGoStation = ref(false)
 const comboAllowStreetParking = ref(false)
 
@@ -76,7 +77,7 @@ function snapshotInputs() {
     travelTimeInput: travelTimeInput.value,
     comboOnlyGoStation: comboOnlyGoStation.value,
     comboLessDriving: comboLessDriving.value,
-    comboOnlyWalking: comboOnlyWalking.value,
+    comboNoLocalTransit: comboNoLocalTransit.value,
     comboAllowStreetParking: comboAllowStreetParking.value,
   }
 }
@@ -99,7 +100,7 @@ function inputsMatchSnapshot(snap) {
     cur.travelTimeInput === snap.travelTimeInput &&
     cur.comboOnlyGoStation === snap.comboOnlyGoStation &&
     cur.comboLessDriving === snap.comboLessDriving &&
-    cur.comboOnlyWalking === snap.comboOnlyWalking &&
+    cur.comboNoLocalTransit === snap.comboNoLocalTransit &&
     cur.comboAllowStreetParking === snap.comboAllowStreetParking
   )
 }
@@ -119,6 +120,7 @@ function buildActiveCriteria() {
     const label = isDepart && withinTwoMin ? 'Depart Now' : (isDepart ? `Depart at ${timeStr}` : `Arrive by ${timeStr}`)
     items.push({ label, title: timeStr })
   }
+  if (usedLiveTraffic.value) items.push({ label: 'Live traffic', title: 'Driving times use current live traffic' })
   if (avoidTolls.value) items.push('Avoid tolls')
   if (avoidHighways.value) items.push('Avoid highways')
   if (avoidFerries.value) items.push('Avoid ferries')
@@ -127,7 +129,7 @@ function buildActiveCriteria() {
   if (transitRoutingPreference.value === 'FEWER_TRANSFERS') items.push('Transit: fewer transfers')
   if (transitRoutingPreference.value === 'LESS_WALKING') items.push('Transit: less walking')
   if (comboLessDriving.value) items.push('Combo: prefer nearest station')
-  if (comboOnlyWalking.value) items.push('Combo: walk after GO')
+  if (comboNoLocalTransit.value) items.push('Combo: no local transit')
   if (comboOnlyGoStation.value) items.push('Combo: on-site parking only')
   if (comboAllowStreetParking.value) items.push('Combo: allow street parking')
   return items
@@ -136,6 +138,12 @@ function buildActiveCriteria() {
 const activeCriteria = computed(() =>
   hasResults.value && frozenActiveCriteria.value ? frozenActiveCriteria.value : buildActiveCriteria()
 )
+
+const usedLiveTraffic = computed(() => {
+  if (!drivingResult.value || !lastDrivingDepartureTime.value) return false
+  const diffMs = Math.abs(lastDrivingDepartureTime.value.getTime() - Date.now())
+  return diffMs < 15 * 60 * 1000
+})
 
 function defaultTravelTime() {
   return new Date()
@@ -181,12 +189,12 @@ function swapDirections() {
 function resetComboOptions() {
   comboOnlyGoStation.value = false
   comboLessDriving.value = false
-  comboOnlyWalking.value = false
+  comboNoLocalTransit.value = false
   comboAllowStreetParking.value = false
 }
 
 const hasComboOptionsActive = computed(
-  () => comboOnlyGoStation.value || comboLessDriving.value || comboOnlyWalking.value || comboAllowStreetParking.value
+  () => comboOnlyGoStation.value || comboLessDriving.value || comboNoLocalTransit.value || comboAllowStreetParking.value
 )
 
 async function calculate() {
@@ -200,6 +208,7 @@ async function calculate() {
   comboUnavailableReason.value = null
   selectedRoute.value = null
   detailsExpanded.value = false
+  lastDrivingDepartureTime.value = null
 
   const origin = originPlace.value.location
   const destination = destinationPlace.value.location
@@ -252,6 +261,20 @@ async function calculate() {
 
   const directionsService = new google.value.maps.DirectionsService()
 
+  function transitUsesViaRail(leg) {
+    const steps = leg?.steps ?? []
+    for (const step of steps) {
+      const t = step.transit ?? step.transit_details
+      if (!t) continue
+      const agencies = t.line?.agencies ?? []
+      for (const a of agencies) {
+        const an = (a?.name ?? '').toLowerCase()
+        if (an.includes('via rail')) return true
+      }
+    }
+    return false
+  }
+
   try {
     const [drivingSettled, transitSettled] = await Promise.allSettled([
       new Promise((resolve, reject) => {
@@ -277,6 +300,7 @@ async function calculate() {
     if (drivingSettled.status === 'fulfilled') {
       const leg = drivingSettled.value?.routes?.[0]?.legs?.[0]
       if (leg) {
+        lastDrivingDepartureTime.value = departureForDriving
         drivingResult.value = {
           duration: leg.duration,
           durationInTraffic: leg.duration_in_traffic,
@@ -287,12 +311,14 @@ async function calculate() {
     }
 
     if (transitSettled.status === 'fulfilled') {
-      const leg = transitSettled.value?.routes?.[0]?.legs?.[0]
+      const routes = transitSettled.value?.routes ?? []
+      const nonViaRoute = routes.find((r) => !transitUsesViaRail(r?.legs?.[0]))
+      const leg = nonViaRoute?.legs?.[0]
       if (leg) {
         transitResult.value = {
           duration: leg.duration,
           distance: leg.distance,
-          result: transitSettled.value,
+          result: { routes: [nonViaRoute], geocoded_waypoints: transitSettled.value?.geocoded_waypoints },
         }
       }
     }
@@ -323,7 +349,9 @@ async function calculate() {
           }
         }
         for (const route of routes) {
-          const transitSteps = route?.legs?.[0]?.steps ?? []
+          const routeLeg = route?.legs?.[0]
+          if (transitUsesViaRail(routeLeg)) continue
+          const transitSteps = routeLeg?.steps ?? []
           for (const step of transitSteps) {
             const t = step.transit ?? step.transit_details
             if (!t) continue
@@ -356,6 +384,63 @@ async function calculate() {
             }
           }
           return true
+        }
+
+        function getLastGoStepIndex(transitLeg) {
+          const steps = transitLeg?.steps ?? []
+          let lastGo = -1
+          for (let i = 0; i < steps.length; i++) {
+            const t = steps[i].transit ?? steps[i].transit_details
+            if (!t) continue
+            const agencies = t.line?.agencies ?? []
+            const isGo = agencies.some((a) => (a?.name ?? '').toLowerCase().includes('go'))
+            if (isGo) lastGo = i
+            else if (isLocalTransitAgency(agencies[0]?.name ?? '')) break
+          }
+          return lastGo
+        }
+
+        async function buildGoPlusWalkLeg(transitLeg) {
+          const lastGoIdx = getLastGoStepIndex(transitLeg)
+          if (lastGoIdx < 0) return null
+          const steps = transitLeg.steps ?? []
+          const lastGoStep = steps[lastGoIdx]
+          const t = lastGoStep?.transit ?? lastGoStep?.transit_details
+          const exitLocation = t?.arrival_stop?.location ?? lastGoStep?.end_location
+          if (!exitLocation) return null
+          return new Promise((resolve) => {
+            directionsService.route(
+              {
+                origin: exitLocation,
+                destination,
+                travelMode: google.value.maps.TravelMode.WALKING,
+              },
+              (result, status) => {
+                if (status !== google.value.maps.DirectionsStatus.OK || !result?.routes?.[0]?.legs?.[0]) {
+                  resolve(null)
+                  return
+                }
+                const walkLeg = result.routes[0].legs[0]
+                const goSteps = steps.slice(0, lastGoIdx + 1)
+                const walkSteps = walkLeg.steps ?? []
+                const goDuration = goSteps.reduce((sum, s) => sum + (s.duration?.value ?? 0), 0)
+                const walkDuration = walkLeg.duration?.value ?? 0
+                const goDistance = goSteps.reduce((sum, s) => sum + (s.distance?.value ?? 0), 0)
+                const walkDistance = walkLeg.distance?.value ?? 0
+                const mergedSteps = [...goSteps, ...walkSteps]
+                const totalDist = goDistance + walkDistance
+                const mergedLeg = {
+                  ...transitLeg,
+                  steps: mergedSteps,
+                  duration: { value: goDuration + walkDuration, text: `${Math.round((goDuration + walkDuration) / 60)} min` },
+                  distance: { value: totalDist, text: totalDist >= 1000 ? `${(totalDist / 1000).toFixed(1)} km` : `${Math.round(totalDist)} m` },
+                  end_location: walkLeg.end_location,
+                  end_address: walkLeg.end_address,
+                }
+                resolve(mergedLeg)
+              }
+            )
+          })
         }
 
         // When comboOnlyGoStation: only on-site park-and-ride. Otherwise fall back to GO stations
@@ -411,7 +496,7 @@ async function calculate() {
                     destination,
                     travelMode: google.value.maps.TravelMode.TRANSIT,
                     transitOptions: comboTransitOpts,
-                    provideRouteAlternatives: comboOnlyWalking.value,
+                    provideRouteAlternatives: comboNoLocalTransit.value,
                   },
                   (result, status) => (status === google.value.maps.DirectionsStatus.OK ? resolve(result) : reject(new Error(status)))
                 )
@@ -419,7 +504,7 @@ async function calculate() {
             ])
             const driveLeg = driveSettled.status === 'fulfilled' ? driveSettled.value?.routes?.[0]?.legs?.[0] : null
             let transitLeg = transitSettled.status === 'fulfilled' ? transitSettled.value?.routes?.[0]?.legs?.[0] : null
-            if (transitLeg && comboOnlyWalking.value && transitSettled.status === 'fulfilled') {
+            if (transitLeg && comboNoLocalTransit.value && transitSettled.status === 'fulfilled') {
               const routes = transitSettled.value?.routes ?? []
               for (const route of routes) {
                 const leg = route?.legs?.[0]
@@ -428,8 +513,12 @@ async function calculate() {
                   break
                 }
               }
+              if (!transitUsesOnlyGoOrWalk(transitLeg) && getLastGoStepIndex(transitLeg) >= 0 && !transitUsesViaRail(transitLeg)) {
+                const goWalkLeg = await buildGoPlusWalkLeg(transitLeg)
+                if (goWalkLeg) transitLeg = goWalkLeg
+              }
             }
-            if (!driveLeg || !transitLeg) return null
+            if (!driveLeg || !transitLeg || transitUsesViaRail(transitLeg)) return null
             const driveDuration = driveLeg.duration?.value ?? 0
             const driveDurationInTraffic = driveLeg.duration_in_traffic?.value ?? driveDuration
             const driveDistance = driveLeg.distance?.value ?? 0
@@ -450,14 +539,14 @@ async function calculate() {
         )
 
         const validCandidates = evaluated.filter(Boolean)
-        const onlyWalkingFiltered = comboOnlyWalking.value
+        const noLocalTransitFiltered = comboNoLocalTransit.value
           ? validCandidates.filter((c) => transitUsesOnlyGoOrWalk(c.transitLeg))
           : validCandidates
         const TRAFFIC_THRESHOLD = 1.35
-        const trafficFiltered = onlyWalkingFiltered.filter(
+        const trafficFiltered = noLocalTransitFiltered.filter(
           (c) => (c.driveDurationInTraffic ?? 0) / (c.driveDuration || 1) <= TRAFFIC_THRESHOLD
         )
-        const toScore = trafficFiltered.length > 0 ? trafficFiltered : onlyWalkingFiltered
+        const toScore = trafficFiltered.length > 0 ? trafficFiltered : noLocalTransitFiltered
         const scored = [...toScore].sort((a, b) => {
           const distA = a.driveDistance ?? 0
           const distB = b.driveDistance ?? 0
@@ -470,8 +559,8 @@ async function calculate() {
 
         const best = scored[0]
         if (!best) {
-          comboUnavailableReason.value = comboOnlyWalking.value
-            ? "No combo route with GO + walk only. Try turning off 'Walk after GO' to see routes that include local transit (TTC, etc.)."
+          comboUnavailableReason.value = comboNoLocalTransit.value
+            ? "Could not build a GO+walk combo. Try turning off 'No local transit' to see routes with buses (TTC, MiWay, etc.)."
             : 'Could not find a suitable combo route. Try adjusting traffic or combo options.'
         } else {
           const { driveLeg, transitLeg, station, totalTime } = best
@@ -753,10 +842,10 @@ onMounted(async () => {
             <button
               type="button"
               class="rounded-full px-2.5 py-1 text-xs font-medium transition focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
-              :class="comboOnlyWalking ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'"
-              @click="comboOnlyWalking = !comboOnlyWalking"
+              :class="comboNoLocalTransit ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'"
+              @click="comboNoLocalTransit = !comboNoLocalTransit"
             >
-              Walk after GO
+              No local transit
             </button>
           </div>
         </div>
@@ -810,6 +899,7 @@ onMounted(async () => {
           :error="directionsError"
           :selected-mode="selectedRoute?.mode"
           :show-details="detailsExpanded"
+          :used-live-traffic="usedLiveTraffic"
           @select-route="onSelectRoute"
         />
 
@@ -818,6 +908,7 @@ onMounted(async () => {
           <h2 class="mb-2 text-[10px] font-semibold text-gray-700">Route map</h2>
           <RouteMap
             :directions-result="selectedRoute?.result ?? null"
+            :mode="selectedRoute?.mode"
             :origin="originPlace"
             :destination="destinationPlace"
             :google="google"
